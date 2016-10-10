@@ -62,9 +62,14 @@ class ResqueScheduler
 	 */
 	public static function delayedPush($timestamp, $item)
 	{
+		$string = json_encode($item);
+		if ($string === false && json_last_error() !== JSON_ERROR_NONE) {
+			throw new RuntimeException('Unable to encode item as a JSON string.');
+		}
+
 		$timestamp = self::getTimestamp($timestamp);
 		$redis = Resque::redis();
-		$redis->rpush('delayed:' . $timestamp, json_encode($item));
+		$redis->rpush('delayed:' . $timestamp, $string);
 
 		$redis->zadd('delayed_queue_schedule', $timestamp, $timestamp);
 	}
@@ -110,6 +115,9 @@ class ResqueScheduler
     {
        $destroyed=0;
        $item=json_encode(self::jobToHash($queue, $class, $args));
+       if ($item === false && json_last_error() !== JSON_ERROR_NONE) {
+           throw new RuntimeException('Unable to encode item as a JSON string.');
+       }
        $redis=Resque::redis();
 
        foreach($redis->keys('delayed:*') as $key)
@@ -138,6 +146,9 @@ class ResqueScheduler
     {
         $key = 'delayed:' . self::getTimestamp($timestamp);
         $item = json_encode(self::jobToHash($queue, $class, $args));
+        if ($item === false && json_last_error() !== JSON_ERROR_NONE) {
+            throw new RuntimeException('Unable to encode item as a JSON string.');
+        }
         $redis = Resque::redis();
         $count = $redis->lrem($key, 0, $item);
         self::cleanupTimestamp($key, $timestamp);
